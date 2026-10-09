@@ -149,6 +149,33 @@ uv pip install --index https://test.pypi.org/simple/ --index https://pypi.org/si
 Also install the sdist once (`pip install --no-binary :all: ...`), because that path exercises the
 build backend and `MANIFEST.in` rather than just unzipping the wheel.
 
+### Installing from TestPyPI with pipx
+
+`pipx install -i https://test.pypi.org/simple/ dsh-cf-tunnel` fails, and this is expected: `-i`
+*replaces* the index, and `segno` does not exist on TestPyPI (it is only a partial mirror). The
+error is `Because segno was not found in the package registry ... your requirements are
+unsatisfiable`. Give pipx both indexes:
+
+```console
+pipx install --index-url https://test.pypi.org/simple/ \
+    --pip-args="--extra-index-url https://pypi.org/simple/" dsh-cf-tunnel
+```
+
+`--pip-args` is the part that matters; it is forwarded to the resolver on both pipx backends.
+Setting `PIP_EXTRA_INDEX_URL` in the environment does **not** work, because pipx's default uv
+backend ignores pip's environment variables.
+
+To check the install path a real user will take — which resolves every dependency from PyPI —
+install the built wheel instead of going through TestPyPI at all:
+
+```console
+pipx install dist/dsh_cf_tunnel-0.1.0-py3-none-any.whl
+pipx uninstall dsh-cf-tunnel
+```
+
+None of this affects the real release: once the package is on PyPI, `pipx install dsh-cf-tunnel`
+resolves `segno` from the same index and needs no extra flags.
+
 **Wait a moment before the first install.** TestPyPI's simple index and its PEP 658 metadata
 endpoint do not update at exactly the same instant as the upload; an install issued seconds after
 `uv publish` can report `dsh-cf-tunnel was not found in the package registry` even though the files
