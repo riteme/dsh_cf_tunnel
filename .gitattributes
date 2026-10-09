@@ -1,0 +1,8 @@
+# Keep line endings stable no matter which platform clones the repository: the
+# committed form and the checked-out form are both LF.
+* text=auto eol=lf
+
+# Build artifacts and images are binary; never diff or merge them textually.
+*.png binary
+*.whl binary
+*.gz binary

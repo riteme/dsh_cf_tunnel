@@ -1,0 +1,20 @@
+# Build artifacts of the dsh_cf_tunnel subproject.
+build/
+dist/
+*.egg-info/
+
+# Development environments: the README's own instructions create .venv here.
+.venv/
+venv/
+
+# Tooling caches inside the subproject (the monorepo root keeps its own).
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+__pycache__/
+*.py[cod]
+
+# Coverage output.
+.coverage
+.coverage.*
+htmlcov/

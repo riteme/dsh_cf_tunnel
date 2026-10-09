@@ -1,0 +1,6 @@
+# Ship the tests in the sdist so a downstream packager can run them; setuptools'
+# default patterns only pick up tests/test*.py, which would drop the package marker
+# and the shared QR decode helpers.
+recursive-include tests *.py
+include LICENSE
+include README.md
