@@ -8,7 +8,6 @@ import logging
 import re
 import shutil
 import socket
-import subprocess
 import sys
 import tempfile
 import time
@@ -17,13 +16,14 @@ import urllib.parse
 import urllib.request
 from collections.abc import Sequence
 
-from .cloudflared import ensure_cloudflared, resolve_executable, start_cloudflared
 from .errors import ShutdownRequested, StartupError
 from .hostpage import write_host_page_patch
 from .log import LOGGER, configure_logging
+from .preflight import describe_tool, ensure_tools
 from .process import ProcessGroup, Shutdown
 from .qr import QR_STYLES, qr_art, qr_columns, qr_matrix, resolve_qr_style, write_qr_png
 from .shim import TOKEN_QUERY, AuthShim
+from .tunnel import start_cloudflared
 
 DSH_WEB_URL_PATTERN = re.compile(r"http://\S*?[?&]token=[A-Za-z0-9_\-]+")
 
@@ -148,11 +148,12 @@ def start_dsh_web(
     shutdown: Shutdown,
     patch: str | None = None,
 ) -> str:
-    """Start the dsh Web UI with the tunnel hostname trusted, and return its token URL."""
-    resolved = resolve_executable(binary)
-    if resolved is None:
-        raise StartupError(f"dsh executable '{binary}' was not found in PATH; pass --dsh-bin /path/to/dsh")
-    command = [resolved]
+    """Start the dsh Web UI with the tunnel hostname trusted, and return its token URL.
+
+    @param binary - the dsh executable already resolved by the preflight, so this
+    never starts a process for a tool that is not installed.
+    """
+    command = [binary]
     if patch is not None:
         # --patch is a launcher flag, so it must precede the profile name: every
         # argument after `web` belongs to the web app's own parser.
@@ -282,20 +283,15 @@ def monitor(group: ProcessGroup, shutdown: Shutdown) -> int:
 
 
 def run(args: argparse.Namespace, shutdown: Shutdown) -> int:
-    """Run the full startup sequence and supervise both children."""
-    cloudflared = ensure_cloudflared(args.cloudflared_bin)
-    try:
-        version = subprocess.run(
-            [cloudflared, "--version"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        ).stdout.strip()
-    except (OSError, subprocess.SubprocessError) as error:
-        LOGGER.debug("could not read the cloudflared version: %s", error)
-        version = ""
-    LOGGER.info("using cloudflared: %s", version or cloudflared)
+    """Run the full startup sequence and supervise both children.
+
+    Both external tools are resolved first: a missing dsh or cloudflared is
+    reported with install instructions before any child process is started, and
+    this program never installs either of them itself.
+    """
+    tools = ensure_tools(args.cloudflared_bin, args.dsh_bin)
+    LOGGER.info("using cloudflared: %s", describe_tool(tools.cloudflared))
+    LOGGER.info("using dsh: %s", describe_tool(tools.dsh))
 
     port = args.port if args.port > 0 else find_free_port()
     group = ProcessGroup()
@@ -322,11 +318,11 @@ def run(args: argparse.Namespace, shutdown: Shutdown) -> int:
             shim.start()
             tunnel_port = shim.port
             LOGGER.info("auth shim listening on 127.0.0.1:%s -> dsh on 127.0.0.1:%s", shim.port, port)
-        origin = start_cloudflared(group, cloudflared, tunnel_port, args.ready_timeout, shutdown)
+        origin = start_cloudflared(group, tools.cloudflared, tunnel_port, args.ready_timeout, shutdown)
         tunnel_host = urllib.parse.urlsplit(origin).netloc
         local_url = start_dsh_web(
             group,
-            args.dsh_bin,
+            tools.dsh,
             port,
             [tunnel_host],
             args.ready_timeout,

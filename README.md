@@ -28,9 +28,16 @@ Scan the code with a phone, or send someone the URL, and the dsh Web UI opens fr
 ## Requirements
 
 - Python 3.9 or newer.
-- The `dsh` CLI on `PATH` (or `--dsh-bin /path/to/dsh`). This package launches it, it does not ship it.
-- `cloudflared` on `PATH` (or `--cloudflared-bin /path/to/cloudflared`). When it is missing the
-  program prints how to install the latest release and exits with status 1.
+- The `dsh` CLI on `PATH` (or `--dsh-bin /path/to/dsh`). This package launches it; it does not ship it.
+- `cloudflared` on `PATH` (or `--cloudflared-bin /path/to/cloudflared`).
+
+Both tools are checked at startup, before anything is started. When one is missing, the program
+prints how to install it and exits with status 1 — **it never installs or upgrades anything for
+you**. Missing tools are reported together, so one run tells you about both.
+
+For `dsh` the message offers `npm install -g @deepseek-ai/dsh`, the source tree, or `--dsh-bin`
+for an installation that is already there. For `cloudflared` it offers the Debian/Ubuntu
+repository and the standalone binary of the latest GitHub release for the detected platform.
 
 ## Install
 
@@ -77,9 +84,11 @@ browser ──https──▶ Cloudflare edge ──tunnel──▶ cloudflared �
                                                               127.0.0.1       127.0.0.1
 ```
 
-1. **cloudflared preflight.** The binary is resolved from `PATH`; when it is missing, the exact
-   install commands for the running platform are printed (apt repository or the latest GitHub
-   release asset) and the program exits non-zero.
+1. **Preflight.** Both external tools are resolved from `PATH` before any process is started.
+   When one is missing, the install commands for it are printed — for `cloudflared` the apt
+   repository or the latest GitHub release asset for the running platform, for `dsh` the npm
+   package and the existing-installation route — and the program exits with status 1. Nothing is
+   ever installed on your behalf.
 2. **Quick tunnel.** `cloudflared tunnel --no-autoupdate --url http://127.0.0.1:<shim>` is started
    and its `https://<name>.trycloudflare.com` hostname is parsed from the log. A failed tunnel
    request is reported instead of being mistaken for a tunnel URL.
@@ -137,6 +146,9 @@ are done, and prefer a short-lived session over a long-running one.
 
 | Symptom | Cause and fix |
 | --- | --- |
+| `dsh: 'dsh' was not found in PATH` | The dsh CLI is not installed. Run `npm install -g @deepseek-ai/dsh`, or point `--dsh-bin` at an existing installation (a checkout, the desktop app's runtime, or another Node version's global bin). |
+| `cloudflared: 'cloudflared' was not found in PATH` | Install cloudflared from the two options in the message, or point `--cloudflared-bin` at it. |
+| npm installed dsh but the program still cannot find it | `npm prefix -g` prints the global prefix; its `bin` directory is not on `PATH`. Add it, or pass `--dsh-bin "$(npm prefix -g)/bin/dsh"`. |
 | `dsh web authentication required` | A client that could not keep the session cookie. The shim is on by default; if you disabled it with `--no-auth-shim`, re-enable it. If the client also mangles the URL, add `--shim-open-index`. |
 | `settings are unavailable in this browser` | The page is not host-owned. Do not pass `--no-host-page`, and make sure the generated patch was applied (`--log-level DEBUG` prints its path). |
 | Public URL does not resolve yet | A fresh quick tunnel needs a moment to propagate; the program waits for the first answer before printing the banner. |

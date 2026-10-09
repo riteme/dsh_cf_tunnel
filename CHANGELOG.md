@@ -10,8 +10,11 @@ All notable changes to this project are documented here. The format is based on
 
 - `dsh-cf-tunnel` command: boots `dsh --profile web`, exposes it through a Cloudflare quick
   tunnel, and prints the public URL with a scannable terminal QR code.
-- cloudflared preflight with platform-aware install guidance, and a non-zero exit when the
-  binary is missing.
+- Startup preflight for both external tools: `cloudflared` and the `dsh` CLI are resolved before
+  anything is started, and every missing one is reported with install instructions in a single
+  exit. The program never installs or upgrades either tool.
+- Platform-aware cloudflared install guidance (apt repository or the latest GitHub release asset),
+  and a non-zero exit when the binary is missing.
 - Loopback auth shim: the token URL answers with the application and its session cookie
   directly, and every forwarded request carries that cookie, so clients that cannot keep a
   cookie across dsh's `303` redirect still work.
@@ -22,4 +25,4 @@ All notable changes to this project are documented here. The format is based on
 - Verification that the public URL really answers before the banner is printed.
 - Cooperative shutdown: `Ctrl-C` stops cloudflared and the dsh Web UI together.
 
-[0.1.0]: https://example.com/dsh-cf-tunnel/releases/tag/v0.1.0
+[0.1.0]: https://github.com/riteme/dsh_cf_tunnel/releases/tag/dsh-cf-tunnel-v0.1.0

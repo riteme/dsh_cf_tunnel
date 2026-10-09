@@ -5,8 +5,11 @@ own one concern each:
 
 ``cli``
     Flags, startup order, banner, and process supervision.
-``cloudflared``
-    The cloudflared preflight, install guidance, and the quick-tunnel launcher.
+``preflight``
+    Locates the ``cloudflared`` and ``dsh`` executables and prints install
+    instructions for any that is missing. Nothing is ever installed here.
+``tunnel``
+    The cloudflared quick-tunnel launcher and its URL parsing.
 ``shim``
     The loopback auth shim that keeps dsh's session cookie off the client's plate.
 ``hostpage``
