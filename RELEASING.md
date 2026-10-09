@@ -129,20 +129,35 @@ python -m twine upload --repository testpypi dist/*
 ```
 
 Then install from TestPyPI exactly as a stranger would. TestPyPI does not mirror PyPI, so the
-dependencies (`segno`) have to come from the real index:
+dependencies (`segno`) have to come from the real index. Both forms work; the pip-style flags are
+the ones a user is most likely to copy:
 
 ```console
-uv venv --python 3.12 /tmp/verify
+uv venv --python 3.12 /tmp/verify --seed
 /tmp/verify/bin/pip install \
     --index-url https://test.pypi.org/simple/ \
     --extra-index-url https://pypi.org/simple/ \
     dsh-cf-tunnel==0.1.0
 /tmp/verify/bin/dsh-cf-tunnel --help
 /tmp/verify/bin/dsh-cf-tunnel --cloudflared-bin /missing --dsh-bin /missing   # exit 1 + guidance
+
+# uv's own spelling, if you prefer it:
+uv pip install --index https://test.pypi.org/simple/ --index https://pypi.org/simple/ \
+    --index-strategy unsafe-best-match dsh-cf-tunnel==0.1.0
 ```
 
-Also open <https://test.pypi.org/project/dsh-cf-tunnel/> and read it as a user would: that page is
-what the PyPI page will look like.
+Also install the sdist once (`pip install --no-binary :all: ...`), because that path exercises the
+build backend and `MANIFEST.in` rather than just unzipping the wheel.
+
+**Wait a moment before the first install.** TestPyPI's simple index and its PEP 658 metadata
+endpoint do not update at exactly the same instant as the upload; an install issued seconds after
+`uv publish` can report `dsh-cf-tunnel was not found in the package registry` even though the files
+are listed. Retry before assuming the upload was wrong.
+
+Open <https://test.pypi.org/project/dsh-cf-tunnel/> and read it as a user would: that page is what
+the PyPI page will look like. The service puts a JavaScript challenge in front of plain HTTP
+fetches, so check it in a browser; from a terminal, `twine check dist/*` runs the same description
+validation PyPI does (it should print `PASSED` for both files).
 
 TestPyPI enforces the same "cannot delete, cannot reuse" rule as PyPI, but only for TestPyPI: a
 version burned there can still be published normally on PyPI. If the rehearsal needs a second
