@@ -22,8 +22,37 @@ permanent: a file cannot be deleted, only yanked, and a version number can never
    ```
 
    `chmod 600 ~/.pypirc`. Never commit this file.
-3. **TestPyPI token** (optional but recommended) from <https://test.pypi.org/manage/account/token/>,
-   as a second `[testpypi]` entry pointing at `https://test.pypi.org/legacy/`.
+
+   Note that **`uv publish` does not read `~/.pypirc`**; it takes credentials from `--token`,
+   `UV_PUBLISH_TOKEN`, or its own `uv auth login` store. The file is still worth having for
+   `twine` and for the conventional place a token lives.
+3. **TestPyPI account and token.** TestPyPI is a separate service with its own accounts and its own
+   tokens: a pypi.org token is rejected there. Register at <https://test.pypi.org/account/register/>
+   and create a token at <https://test.pypi.org/manage/account/token/>, then add it as a second
+   entry in `~/.pypirc` and/or store it with uv:
+
+   ```ini
+   [distutils]
+   index-servers =
+       pypi
+       testpypi
+
+   [pypi]
+   username = __token__
+   password = pypi-AgEIcHlwaS5vcmc...
+
+   [testpypi]
+   repository = https://test.pypi.org/legacy/
+   username = __token__
+   password = pypi-AgEIcHlwaS5vcmc...
+   ```
+
+   ```console
+   uv auth login https://test.pypi.org/legacy/ --token pypi-...
+   uv auth login https://upload.pypi.org/legacy/ --token pypi-...
+   ```
+
+   `uv auth dir` prints where the stored credentials live.
 4. **Identity metadata.** Fill in `authors` and `urls` in `pyproject.toml`. PyPI shows both on the
    project page, and they cannot be edited out of an already-published version's metadata.
 5. **License and authorship clearance.** The package links against nothing copyleft, ships only its
@@ -85,23 +114,45 @@ The README users will read on PyPI is the rendered `METADATA`, so review it with
 
 ## 5. Rehearse on TestPyPI
 
-```console
-uv publish --index testpypi dist/*
-# or: python -m twine upload --repository testpypi dist/*
+Upload with uv (it authenticates from `uv auth login` or from `--token`/`UV_PUBLISH_TOKEN`; it
+never reads `~/.pypirc`):
 
-uv venv --python 3.12 /tmp/verify && /tmp/verify/bin/pip install \
-    --index-url https://test.pypi.org/simple/ \
-    --extra-index-url https://pypi.org/simple/ \
-    dsh-cf-tunnel
-/tmp/verify/bin/dsh-cf-tunnel --help
+```console
+uv publish --dry-run --publish-url https://test.pypi.org/legacy/ dist/*   # shape check, no upload
+uv publish --publish-url https://test.pypi.org/legacy/ dist/*             # real upload
 ```
 
-TestPyPI has the same "cannot delete, cannot reuse" rule, so this is a real rehearsal.
+`twine` is the alternative, and it does read `~/.pypirc`:
+
+```console
+python -m twine upload --repository testpypi dist/*
+```
+
+Then install from TestPyPI exactly as a stranger would. TestPyPI does not mirror PyPI, so the
+dependencies (`segno`) have to come from the real index:
+
+```console
+uv venv --python 3.12 /tmp/verify
+/tmp/verify/bin/pip install \
+    --index-url https://test.pypi.org/simple/ \
+    --extra-index-url https://pypi.org/simple/ \
+    dsh-cf-tunnel==0.1.0
+/tmp/verify/bin/dsh-cf-tunnel --help
+/tmp/verify/bin/dsh-cf-tunnel --cloudflared-bin /missing --dsh-bin /missing   # exit 1 + guidance
+```
+
+Also open <https://test.pypi.org/project/dsh-cf-tunnel/> and read it as a user would: that page is
+what the PyPI page will look like.
+
+TestPyPI enforces the same "cannot delete, cannot reuse" rule as PyPI, but only for TestPyPI: a
+version burned there can still be published normally on PyPI. If the rehearsal needs a second
+attempt, either bump the version or rehearse with a throwaway one such as `0.1.0.dev1`.
 
 ## 6. Publish
 
 ```console
-uv publish dist/*          # reads ~/.pypirc, or use UV_PUBLISH_TOKEN
+uv publish dist/*          # uv auth login / UV_PUBLISH_TOKEN; uv never reads ~/.pypirc
+# or: python -m twine upload dist/*        # twine does read ~/.pypirc
 ```
 
 Confirm the result:
